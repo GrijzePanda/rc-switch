@@ -43,6 +43,8 @@
     #include <wiringPi.h>
 #elif defined(SPARK)
     #include "application.h"
+#elif defined(ESP32)
+    #include "Arduino.h"
 #else
     #include "WProgram.h"
 #endif

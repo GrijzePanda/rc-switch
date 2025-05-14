@@ -33,6 +33,8 @@
 */
 
 #include "RCSwitch.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
 
 #ifdef RaspberryPi
     // PROGMEM and _P functions are for AVR based microprocessors,
@@ -103,7 +105,7 @@ volatile unsigned int RCSwitch::nReceivedBitlength = 0;
 volatile unsigned int RCSwitch::nReceivedDelay = 0;
 volatile unsigned int RCSwitch::nReceivedProtocol = 0;
 int RCSwitch::nReceiveTolerance = 60;
-const unsigned int VAR_ISR_ATTR RCSwitch::nSeparationLimit = 4300;
+const unsigned int RCSwitch::nSeparationLimit = 4300;
 // separationLimit: minimum microseconds between received codes, closer codes are ignored.
 // according to discussion on issue #14 it might be more suitable to set the separation
 // limit to the same time as the 'low' part of the sync signal for the current protocol.
@@ -557,6 +559,9 @@ void RCSwitch::enableReceive() {
     RCSwitch::nReceivedBitlength = 0;
 #if defined(RaspberryPi) // Raspberry Pi
     wiringPiISR(this->nReceiverInterrupt, INT_EDGE_BOTH, &handleInterrupt);
+#elif defined(ESP32) // ESP32
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add((gpio_num_t)this->nReceiverInterrupt, (gpio_isr_t)handleInterrupt, NULL);
 #else // Arduino
     attachInterrupt(this->nReceiverInterrupt, handleInterrupt, CHANGE);
 #endif
@@ -674,7 +679,7 @@ void RECEIVE_ATTR RCSwitch::handleInterrupt() {
   static unsigned long lastTime = 0;
   static unsigned int repeatCount = 0;
 
-  const long time = micros();
+  const long time = (long)esp_timer_get_time();
   const unsigned int duration = time - lastTime;
 
   if (duration > RCSwitch::nSeparationLimit) {
